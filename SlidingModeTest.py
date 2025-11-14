@@ -9,15 +9,15 @@ import os
 
 
 ################## ENCODER ###############
+
 def read_raw_angle(): # Function to read raw angle from the encoder
     data = smbus.SMBus(1).read_i2c_block_data(0x40, 0xFE, 2)
     return data[0] / 255 + data[1]/64/255
 
-
-pip install smbus2
 def normalize(curr_position,rest_position): #Normalize to rest position
     current_angle = read_raw_angle()
-    return curr_position - rest_position
+    normd = curr_position - rest_position
+    return normd
 
 ################## ODRIVE ################
 mass = 0.5  # Kg weights = 0.090
@@ -53,7 +53,7 @@ async def controller(odrive):
         #### Gains ######
         K1 = 3
         K2 = 0.000001
-        K3 = 0
+        K3 = 2
         
         sum_e += err
         del_e = err-err_last
@@ -93,7 +93,6 @@ async def main():
     print(f"Encoder Absolute Position Set: {cur_pos}")
 
     #odrive.setAxisState("closed_loop_control")
-    odrive.setAxisState("open_loop_control")
 
     #add each odrive to the async loop so they will run.
     await asyncio.gather(
