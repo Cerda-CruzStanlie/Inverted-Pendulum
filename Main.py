@@ -16,6 +16,8 @@ def read_raw_angle(): # Function to read raw angle from the encoder
     data = data
     return data
 
+
+pip install smbus2
 def normalize(curr_position,rest_position): #Normalize to rest position
     current_angle = read_raw_angle()
     normd = curr_position - rest_position
