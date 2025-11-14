@@ -14,7 +14,6 @@ def read_raw_angle(): # Function to read raw angle from the encoder
     return data[0] / 255 + data[1]/64/255
 
 
-pip install smbus2
 def normalize(curr_position,rest_position): #Normalize to rest position
     current_angle = read_raw_angle()
     return curr_position - rest_position
@@ -52,7 +51,7 @@ async def controller(odrive):
         
         #### Gains ######
         K1 = 3
-        K2 = 0.000001
+        K2 = 0.1
         K3 = 0
         
         sum_e += err
