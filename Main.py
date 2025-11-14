@@ -18,8 +18,7 @@ def normalize(curr_position,rest_position): #Normalize to rest position
     return curr_position - rest_position
 
 ################## ODRIVE ################
-mass = 0.5  # Kg weights = 0.090
-length = 0.11  # Meters
+
 I = mass * length * 9.8
 
 async def controller(odrive):
@@ -35,6 +34,9 @@ async def controller(odrive):
     odrive.set_torque(1)
     sum_e = 0
     err_last = 0
+    mass = 0.5  # Kg weights = 0.090
+    length = 0.11  # Meters
+    g = 9.81  # m/s^2
     while datetime.now() < stop_at:
 		#### Encoder ######
         prev_val = val
@@ -51,13 +53,13 @@ async def controller(odrive):
         #### Gains ######
         K1 = 3
         K2 = 0.000001
-        K3 = 0
+        K3 = 0.5
         
         sum_e += err
         del_e = err-err_last
         # Calculate next wheel position
         time -= asyncio.get_event_loop().time()
-        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3)
+        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3) - mass*g*length*math.sin(read_raw_angle*np.pi)
         time = asyncio.get_event_loop().time()
         odrive.set_torque(next_vel)
         
