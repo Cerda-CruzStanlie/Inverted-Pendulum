@@ -20,19 +20,21 @@ async def controller(odrive):
     #Run for set time delay example runs for 15 seconds.
     odrive.set_controller_mode("torque_control")
     stop_at = datetime.now() + timedelta(seconds=10000)
-    dt = 0
-    ## Initilize Encoder ##
+    
+    #### Gains ######
+    K1 = 3
+    K2 = 0.1
+    K3 = 0.5
+
+    # #### Initilize #####
     rest_pos = read_raw_angle()
     val = 0
     hturns = 0
     odrive.set_torque(1)
     sum_e = 0
     err_last = 0
-
-    #### Gains ######
-    K1 = 3
-    K2 = 0.1
-    K3 = 0.5
+    dt = asyncio.get_event_loop().time()
+    
     while datetime.now() < stop_at:
 		# ### Encoder ######
         prev_val = val
@@ -49,13 +51,12 @@ async def controller(odrive):
         de = e-err_last
         # Calculate next wheel input
         dt -= asyncio.get_event_loop().time()
-        u = (-e*K1 - K2*sum_e - de/dt*K3)
+        u = -(e*K1 + K2*sum_e + K3*de/dt)
         odrive.set_torque(u)
         dt = asyncio.get_event_loop().time()
         err_last = e
         
-
-        await asyncio.sleep(0.0005)  # 15ms sleep, adjust based on your control loop requirements
+        await asyncio.sleep(0.0005)  
 
 
 #Set up Node_ID 10 ACTIV NODE ID = 10
