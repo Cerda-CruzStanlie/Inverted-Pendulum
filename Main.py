@@ -18,15 +18,13 @@ def read_raw_angle(): # TODO: Change to async for better performance
 ################## ODRIVE ################
 
 async def controller(odrive):
-    await asyncio.sleep(1)
+    await asyncio.sleep(0)
     #Run for set time delay example runs for 15 seconds.
     odrive.set_controller_mode("torque_control")
     stop_at = datetime.now() + timedelta(seconds=10000)
     
     #### Gains ######
-    K1 = 3
-    K2 = 0.1
-    K3 = 0.5
+    K1, K2, K3 = 3.0, 0.1, 0.5
 
     # #### Initilize #####
     rest_pos = read_raw_angle()
@@ -35,8 +33,8 @@ async def controller(odrive):
     odrive.set_torque(1)
     sum_e = 0
     err_last = 0
-    dt = asyncio.get_event_loop().time()
     loop = asyncio.get_running_loop()
+    dt = loop.time()
 
     while datetime.now() < stop_at:
 		# ### Encoder ######
@@ -50,11 +48,11 @@ async def controller(odrive):
         position = val + hturns
         e = position - rest_pos
         
-        sum_e += e
+        sum_e += e*dt
         de = e-err_last
         # Calculate next wheel input
         dt -= loop.time()
-        u = -(e*K1 + K2*sum_e + K3*de/dt)
+        u = -(e*K1 + K2*sum_e + K3*de/dt) # TODO: Recheck the equation
         odrive.set_torque(u)
         dt = loop.time()
         err_last = e
