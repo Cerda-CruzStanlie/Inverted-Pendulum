@@ -20,8 +20,6 @@ def normalize(curr_position,rest_position): #Normalize to rest position
 
 ################## ODRIVE ################
 
-I = mass * length * 9.8
-
 async def controller(odrive):
     await asyncio.sleep(1)
     #Run for set time delay example runs for 15 seconds.
@@ -52,20 +50,14 @@ async def controller(odrive):
         err = position*np.pi
         
         #### Gains ######
-        K1 = 3
-<<<<<<< HEAD
-        K2 = 0.1
-        K3 = 0
-=======
+        K1 = 5
         K2 = 0.000001
-        K3 = 0.5
->>>>>>> 8d181b133eff1aaaf09e5a906ad9abeed6737a00
-        
+        K3 = 0.5        
         sum_e += err
         del_e = err-err_last
         # Calculate next wheel position
         time -= asyncio.get_event_loop().time()
-        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3) - mass*g*length*math.sin(read_raw_angle*np.pi)
+        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3)
         time = asyncio.get_event_loop().time()
         odrive.set_torque(next_vel)
         
@@ -74,9 +66,8 @@ async def controller(odrive):
         # next_torque = max(-1, min(1, next_torque))
         
  
-        print(f"Arm Pos: {round(position,3)} (rad),\t called vel:{round(next_vel,3)} (Rad/s),\t set vel: {odrive.velocity}")
-
-        await asyncio.sleep(0.0005)  # 15ms sleep, adjust based on your control loop requirements
+        
+       
 
 
 #Set up Node_ID 10 ACTIV NODE ID = 10
