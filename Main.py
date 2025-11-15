@@ -6,46 +6,47 @@ from datetime import datetime, timedelta
 import smbus
 import time
 import os
+import uvloop # TODO: Implement uvloop for better performance
 
 
 ################## ENCODER ###############
-def read_raw_angle(): # Function to read raw angle from the encoder
-    data = smbus.SMBus(1).read_i2c_block_data(0x40, 0xFE, 2)
+bus = smbus.SMBus(1)
+def read_raw_angle(): # TODO: Change to async for better performance
+    data = bus.read_i2c_block_data(0x40, 0xFE, 2)
     return data[0] / 255 + data[1]/64/255
-
-
-def normalize(curr_position,rest_position): #Normalize to rest position
-    current_angle = read_raw_angle()
-    return curr_position - rest_position
 
 ################## ODRIVE ################
 
 async def controller(odrive):
-    await asyncio.sleep(1)
+    await asyncio.sleep(0)
     #Run for set time delay example runs for 15 seconds.
     odrive.set_controller_mode("torque_control")
     stop_at = datetime.now() + timedelta(seconds=10000)
-    time = 0
-    ## Initilize Encoder ##
+    
+    #### Gains ######
+    K1, K2, K3 = 3.0, 0.1, 0.5
+
+    # #### Initilize #####
     rest_pos = read_raw_angle()
     val = 0
     hturns = 0
     odrive.set_torque(1)
     sum_e = 0
     err_last = 0
-    mass = 0.5  # Kg weights = 0.090
-    length = 0.11  # Meters
-    g = 9.81  # m/s^2
+    loop = asyncio.get_running_loop()
+    dt = loop.time()
+
     while datetime.now() < stop_at:
-		#### Encoder ######
+		# ### Encoder ######
         prev_val = val
         val = read_raw_angle()
         diff = val - prev_val
-        if diff < -.5:  # This is to wrap the position, it is based on the fact that you have a 1:2 gear ratio. I would change this to 1:1
+        if diff < -.5:  # This is to wrap the position due to magnetic encoder limits
             hturns += 1
         elif diff> 0.5:
             hturns -= 1
         position = val + hturns
+<<<<<<< HEAD
         position = normalize(position,rest_pos)
         err = position*np.pi
         
@@ -68,6 +69,20 @@ async def controller(odrive):
  
         
        
+=======
+        e = position - rest_pos
+        
+        sum_e += e*dt
+        de = e-err_last
+        # Calculate next wheel input
+        dt -= loop.time()
+        u = -(e*K1 + K2*sum_e + K3*de/dt) # TODO: Recheck the equation
+        odrive.set_torque(u)
+        dt = loop.time()
+        err_last = e
+        
+        await asyncio.sleep(0)  # yield, but don't delay
+>>>>>>> 2146da3a44ad241fdeafef97e0f65e6c9838a34d
 
 
 #Set up Node_ID 10 ACTIV NODE ID = 10
