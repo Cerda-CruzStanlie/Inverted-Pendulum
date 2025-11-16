@@ -1,2 +1,0 @@
-Reaction Wheel Inverted Pendulum
-This repository contains materials for modeling and simulating a reaction-wheel based inverted pendulum. The focus is on deriving the equations of motion (MATLAB derivations available) and developing simulation/control code\
