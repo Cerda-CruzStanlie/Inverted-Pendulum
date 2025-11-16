@@ -1,3 +1,4 @@
+
 import pyodrivecan
 import asyncio
 import math
@@ -6,71 +7,55 @@ from datetime import datetime, timedelta
 import smbus
 import time
 import os
+# import uvloop # TODO: Implement uvloop for better performance
+
 
 
 ################## ENCODER ###############
-
-def read_raw_angle(): # Function to read raw angle from the encoder
-    data = smbus.SMBus(1).read_i2c_block_data(0x40, 0xFE, 2)
+bus = smbus.SMBus(1)
+def read_raw_angle(): # TODO: Change to async for better performance
+    data = bus.read_i2c_block_data(0x40, 0xFE, 2)
     return data[0] / 255 + data[1]/64/255
 
-def normalize(curr_position,rest_position): #Normalize to rest position
-    current_angle = read_raw_angle()
-    normd = curr_position - rest_position
-    return normd
-
 ################## ODRIVE ################
-mass = 0.5  # Kg weights = 0.090
-length = 0.11  # Meters
-I = mass * length * 9.8
 
 async def controller(odrive):
-    await asyncio.sleep(1)
+    await asyncio.sleep(0)
     #Run for set time delay example runs for 15 seconds.
     odrive.set_controller_mode("torque_control")
     stop_at = datetime.now() + timedelta(seconds=10000)
-    time = 0
-    ## Initilize Encoder ##
+    
+    #### Gains ######
+    C = 3
+
+    # #### Initilize #####
     rest_pos = read_raw_angle()
     val = 0
     hturns = 0
-    odrive.set_torque(1)
+    odrive.set_torque(10)
     sum_e = 0
-    err_last = 0
+    p_last = 0
+    loop = asyncio.get_running_loop()
+    dt = loop.time()
     while datetime.now() < stop_at:
-		#### Encoder ######
+		# ### Encoder ######
         prev_val = val
         val = read_raw_angle()
         diff = val - prev_val
-        if diff < -.5:  # This is to wrap the position, it is based on the fact that you have a 1:2 gear ratio. I would change this to 1:1
+        if diff < -.5:  # This is to wrap the position due to magnetic encoder limits
             hturns += 1
         elif diff> 0.5:
             hturns -= 1
         position = val + hturns
-        position = normalize(position,rest_pos)
-        err = position*np.pi
-        
-        #### Gains ######
-        K1 = 3
-        K2 = 0.000001
-        K3 = 2
-        
-        sum_e += err
-        del_e = err-err_last
-        # Calculate next wheel position
-        time -= asyncio.get_event_loop().time()
-        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3)
-        time = asyncio.get_event_loop().time()
-        odrive.set_torque(next_vel)
-        
-        err_last = err
-        # Limit next_torque to between -0.129 and 0.129
-        # next_torque = max(-1, min(1, next_torque))
-        
- 
-        print(f"Arm Pos: {round(position,3)} (rad),\t called vel:{round(next_vel,3)} (Rad/s),\t set vel: {odrive.velocity}")
-
-        await asyncio.sleep(0.0005)  # 15ms sleep, adjust based on your control loop requirements
+        p = position - rest_pos
+        dt = loop.time() - dt
+        v = (p-p_last)/dt
+        # Calculate next wheel input
+        u = 10*np.sign(p+C*v) # TODO: Recheck the equation
+        odrive.set_torque(u)
+        dt = loop.time()
+        p_last = p
+        await asyncio.sleep(0)
 
 
 #Set up Node_ID 10 ACTIV NODE ID = 10
@@ -84,7 +69,7 @@ async def main():
 
     #Initalize odrive
     odrive.initCanBus()
-
+   
     
     print("Put Arm at bottom center to calibrate Zero Position.")
     await asyncio.sleep(1)
@@ -93,6 +78,7 @@ async def main():
     print(f"Encoder Absolute Position Set: {cur_pos}")
 
     #odrive.setAxisState("closed_loop_control")
+    odrive.setAxisState("open_loop_control")
 
     #add each odrive to the async loop so they will run.
     await asyncio.gather(

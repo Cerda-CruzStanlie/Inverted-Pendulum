@@ -6,7 +6,8 @@ from datetime import datetime, timedelta
 import smbus
 import time
 import os
-import uvloop # TODO: Implement uvloop for better performance
+# import uvloop # TODO: Implement uvloop for better performance
+
 
 
 ################## ENCODER ###############
@@ -24,18 +25,19 @@ async def controller(odrive):
     stop_at = datetime.now() + timedelta(seconds=10000)
     
     #### Gains ######
-    K1, K2, K3 = 3.0, 0.1, 0.5
-
+    K1, K2, K3 = 6,3,4
+    K1v, K2v, K3v = 6,3,4
     # #### Initilize #####
     rest_pos = read_raw_angle()
     val = 0
     hturns = 0
-    odrive.set_torque(1)
+    odrive.set_torque(10)
     sum_e = 0
     err_last = 0
     loop = asyncio.get_running_loop()
     dt = loop.time()
-
+    I = 0
+    Iv = 0
     while datetime.now() < stop_at:
 		# ### Encoder ######
         prev_val = val
@@ -46,43 +48,25 @@ async def controller(odrive):
         elif diff> 0.5:
             hturns -= 1
         position = val + hturns
-<<<<<<< HEAD
-        position = normalize(position,rest_pos)
-        err = position*np.pi
-        
-        #### Gains ######
-        K1 = 5
-        K2 = 0.000001
-        K3 = 0.5        
-        sum_e += err
-        del_e = err-err_last
-        # Calculate next wheel position
-        time -= asyncio.get_event_loop().time()
-        next_vel = (-err*K1 - K2*sum_e - del_e/time*K3)
-        time = asyncio.get_event_loop().time()
-        odrive.set_torque(next_vel)
-        
-        err_last = err
-        # Limit next_torque to between -0.129 and 0.129
-        # next_torque = max(-1, min(1, next_torque))
-        
- 
-        
-       
-=======
         e = position - rest_pos
+        # stuff
         
         sum_e += e*dt
         de = e-err_last
-        # Calculate next wheel input
         dt -= loop.time()
-        u = -(e*K1 + K2*sum_e + K3*de/dt) # TODO: Recheck the equation
-        odrive.set_torque(u)
-        dt = loop.time()
-        err_last = e
+        err_last = 0
+        ev = odrive.velocity  
+        if ev is None:
+           ev = 0.0
+        I = K2*de/dt + I
+        Iv = K2v*ev/dt + Iv
+      
+        u2 = -(ev*K1v + Iv +K3v*ev/dt)
+        u1 = -(e*K1 + I + K3*de/dt) # TODO: Recheck the equation
+        odrive.set_torque(u1)
         
+        dt = loop.time()
         await asyncio.sleep(0)  # yield, but don't delay
->>>>>>> 2146da3a44ad241fdeafef97e0f65e6c9838a34d
 
 
 #Set up Node_ID 10 ACTIV NODE ID = 10
